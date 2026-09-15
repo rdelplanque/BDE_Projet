@@ -1,0 +1,74 @@
+/* --- À AJOUTER à la fin de gestion_evenement.css --- */
+
+.btn-manage-participations {
+    display: block;
+    width: 100%;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: center;
+}
+
+.btn-manage-participations:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.val-resultats-list {
+    margin-top: 10px;
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.val-resultat-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.val-resultat-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+}
+
+.val-resultat-info span {
+    font-size: 12px;
+    color: #c9bee6;
+}
+
+.btn-valider,
+.btn-valide-done {
+    flex-shrink: 0;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.btn-valider {
+    background: #6c4fd1;
+    color: #fff;
+}
+
+.btn-valider:hover {
+    background: #5b3fc0;
+}
+
+.btn-valide-done {
+    background: rgba(76, 217, 100, 0.15);
+    color: #4cd964;
+    cursor: default;
+}

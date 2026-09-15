@@ -1,9 +1,14 @@
 // Données globales injectées depuis Blade
 const rawEvents = window.BDE_EVENTS || [];
 const storeUrl = window.BDE_STORE_URL || '/evenements';
+const classesData = window.BDE_CLASSES || [];
+const searchEtudiantsUrl = window.BDE_SEARCH_ETUDIANTS_URL || '/participations/recherche-etudiants';
+const validerUrlTemplate = window.BDE_VALIDER_URL_TEMPLATE || '/evenements/__ID__/valider-participation';
 
 let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth(); // 0-11
+let currentEventId = null; // événement actuellement ouvert dans la modal (null = création)
+let lastEditedEvent = null; // dernier événement édité, pour le bouton "Retour" de la modal de validation
 
 const monthNames = [
     "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", 
@@ -105,6 +110,11 @@ function openCreateModal(dateStr = null) {
     const inscritsBox = document.getElementById('inscritsBox');
     if (inscritsBox) inscritsBox.style.display = 'none';
 
+    currentEventId = null;
+    lastEditedEvent = null;
+    const btnOpenValidation = document.getElementById('btnOpenValidation');
+    if (btnOpenValidation) btnOpenValidation.style.display = 'none';
+
     if (title) title.textContent = 'Créer un événement';
     if (methodInput) methodInput.value = 'POST';
     if (form) form.action = storeUrl;
@@ -175,6 +185,12 @@ function openEditModal(ev) {
         delForm.style.display = 'block';
     }
 
+    // Le bouton "Gérer les participations" n'apparaît que sur un événement existant
+    currentEventId = ev.id;
+    lastEditedEvent = ev;
+    const btnOpenValidation = document.getElementById('btnOpenValidation');
+    if (btnOpenValidation) btnOpenValidation.style.display = 'inline-block';
+
     const modal = document.getElementById('eventModal');
     if (modal) modal.classList.add('show');
 }
@@ -184,7 +200,7 @@ function closeEventModal() {
     if (modal) modal.classList.remove('show');
 }
 
-// --- RECHERCHE FLOUE EN TEMPS RÉEL ---
+// --- RECHERCHE FLOUE EN TEMPS RÉEL (liste des événements) ---
 function fuzzyMatch(pattern, text) {
     pattern = pattern.toLowerCase();
     text = text.toLowerCase();
@@ -243,6 +259,197 @@ function renderEventsList(events) {
         `;
         container.appendChild(item);
     });
+}
+
+// --- VALIDATION DE PARTICIPATION (modal séparée) ---
+
+function openValidationModal() {
+    if (!currentEventId) return;
+
+    closeEventModal();
+
+    resetValidationFilters();
+    rechercherEtudiantsValidation();
+
+    const modal = document.getElementById('validationModal');
+    if (modal) modal.classList.add('show');
+}
+
+function closeValidationModal() {
+    const modal = document.getElementById('validationModal');
+    if (modal) modal.classList.remove('show');
+}
+
+function backToEventModal() {
+    closeValidationModal();
+    if (lastEditedEvent) {
+        openEditModal(lastEditedEvent);
+    }
+}
+
+function getCsrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.content : '';
+}
+
+function resetValidationFilters() {
+    const filiereSelect = document.getElementById('val_filiere');
+    const classeSelect = document.getElementById('val_classe');
+    const searchInput = document.getElementById('val_recherche');
+    const resultats = document.getElementById('val_resultats');
+
+    if (filiereSelect) filiereSelect.value = '';
+    if (classeSelect) classeSelect.innerHTML = '<option value="">Toutes les classes</option>';
+    if (searchInput) searchInput.value = '';
+    if (resultats) {
+        resultats.innerHTML = '<p class="no-result">Utilisez les filtres ci-dessus pour rechercher un étudiant.</p>';
+    }
+}
+
+// Recalcule les options du select Classe en fonction de la filière choisie
+function onFiliereChange() {
+    const filiereSelect = document.getElementById('val_filiere');
+    const classeSelect = document.getElementById('val_classe');
+    if (!filiereSelect || !classeSelect) return;
+
+    const filiereId = filiereSelect.value;
+    classeSelect.innerHTML = '<option value="">Toutes les classes</option>';
+
+    classesData
+        .filter(c => !filiereId || String(c.filiere_id) === String(filiereId))
+        .sort((a, b) => (a.nom || '').localeCompare(b.nom || ''))
+        .forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.nom;
+            classeSelect.appendChild(opt);
+        });
+
+    rechercherEtudiantsValidation();
+}
+
+let validationSearchTimer = null;
+function onValidationSearchInput() {
+    clearTimeout(validationSearchTimer);
+    validationSearchTimer = setTimeout(rechercherEtudiantsValidation, 300);
+}
+
+function rechercherEtudiantsValidation() {
+    if (!currentEventId) return;
+
+    const resultats = document.getElementById('val_resultats');
+    if (!resultats) return;
+
+    const filiereId = document.getElementById('val_filiere')?.value || '';
+    const classeId = document.getElementById('val_classe')?.value || '';
+    const nom = document.getElementById('val_recherche')?.value.trim() || '';
+
+    const params = new URLSearchParams({
+        evenement_id: currentEventId,
+        filiere_id: filiereId,
+        classe_id: classeId,
+        nom: nom,
+    });
+
+    resultats.innerHTML = '<p class="no-result">Recherche...</p>';
+
+    fetch(`${searchEtudiantsUrl}?${params.toString()}`, {
+        headers: { 'Accept': 'application/json' },
+    })
+        .then(r => r.json())
+        .then(list => renderResultatsValidation(list))
+        .catch(() => {
+            resultats.innerHTML = '<p class="no-result">Erreur lors de la recherche.</p>';
+        });
+}
+
+function renderResultatsValidation(list) {
+    const resultats = document.getElementById('val_resultats');
+    if (!resultats) return;
+
+    if (!list || list.length === 0) {
+        resultats.innerHTML = '<p class="no-result">Aucun étudiant trouvé.</p>';
+        return;
+    }
+
+    resultats.innerHTML = '';
+    list.forEach(et => {
+        const row = document.createElement('div');
+        row.className = 'val-resultat-item';
+
+        const info = document.createElement('div');
+        info.className = 'val-resultat-info';
+        const sousLigne = [et.classe, et.filiere].filter(Boolean).join(' · ');
+        info.innerHTML = `
+            <strong>${et.nom} ${et.prenom}</strong>
+            <span>${sousLigne}</span>
+        `;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+
+        if (et.deja_valide) {
+            btn.textContent = '✓ Validé';
+            btn.className = 'btn-valide-done';
+            btn.disabled = true;
+        } else {
+            btn.textContent = 'Valider';
+            btn.className = 'btn-valider';
+            btn.addEventListener('click', () => validerParticipation(et.id, btn));
+        }
+
+        row.appendChild(info);
+        row.appendChild(btn);
+        resultats.appendChild(row);
+    });
+}
+
+function validerParticipation(etudiantId, btnEl) {
+    if (!currentEventId) return;
+
+    btnEl.disabled = true;
+    btnEl.textContent = '...';
+
+    const url = validerUrlTemplate.replace('__ID__', currentEventId);
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': getCsrfToken(),
+        },
+        body: JSON.stringify({ etudiant_id: etudiantId }),
+    })
+        .then(r => {
+            if (!r.ok) throw new Error('Erreur serveur');
+            return r.json();
+        })
+        .then(data => {
+            btnEl.textContent = '✓ Validé';
+            btnEl.className = 'btn-valide-done';
+
+            // Mise à jour de l'encart d'inscriptions de la modal
+            const inscritsDisplay = document.getElementById('inscritsDisplay');
+            const progressBar = document.getElementById('inscritsProgressBar');
+            if (inscritsDisplay) {
+                const ev = rawEvents.find(e => e.id === currentEventId);
+                const max = ev ? ev.nombre_place : null;
+                if (max && max > 0) {
+                    inscritsDisplay.textContent = `${data.nb_inscrits} / ${max} place(s)`;
+                    if (progressBar) {
+                        progressBar.style.width = `${Math.min(100, Math.round((data.nb_inscrits / max) * 100))}%`;
+                    }
+                } else {
+                    inscritsDisplay.textContent = `${data.nb_inscrits} inscrit(s) (Places illimitées)`;
+                }
+            }
+        })
+        .catch(() => {
+            btnEl.disabled = false;
+            btnEl.textContent = 'Valider';
+            alert("Une erreur est survenue lors de la validation.");
+        });
 }
 
 // Initialisation au chargement de la page

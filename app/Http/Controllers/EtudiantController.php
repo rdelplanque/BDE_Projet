@@ -13,7 +13,11 @@ class EtudiantController extends Controller
     public function index()
     {
         // Chargement imbriqué : etudiant -> classe -> filiere
+        // withCount / withSum calculent nb_participations et points_bde en une seule requête,
+        // à partir de la table participations (pas de colonnes en dur sur etudiants).
         $etudiantsBruts = Etudiant::with('classe.filiere')
+            ->withCount('participations')
+            ->withSum('participations', 'gain_total')
             ->orderBy('nom', 'asc')
             ->get();
 
@@ -27,8 +31,8 @@ class EtudiantController extends Controller
                 'classe_id'         => $e->classe_id,
                 'classe'            => $e->classe->nom ?? 'Sans classe',
                 'filiere'           => $e->classe->filiere->nom ?? 'Sans filière',
-                'nb_participations' => 0, // Prêt pour l'agrégation future
-                'points_bde'        => 0,
+                'nb_participations' => $e->participations_count,
+                'points_bde'        => ($e->participations_sum_gain_total ?? 0) + $e->points_bonus,
             ];
         });
 
@@ -84,6 +88,96 @@ class EtudiantController extends Controller
 
         return redirect()->route('etudiants.index')
             ->with('success', 'Étudiant supprimé avec succès.');
+    }
+
+    /**
+     * Ajoute (ou retire, si négatif) des points BDE bonus à un étudiant.
+     */
+    public function ajouterPoints(Request $request, Etudiant $etudiant)
+    {
+        $data = $request->validate([
+            'points' => 'required|integer',
+        ]);
+
+        $etudiant->increment('points_bonus', $data['points']);
+
+        $totalParticipations = $etudiant->participations()->sum('gain_total');
+
+        return response()->json([
+            'success' => true,
+            'points_bonus' => $etudiant->points_bonus,
+            'points_bde' => $totalParticipations + $etudiant->points_bonus,
+        ]);
+    }
+
+    /**
+     * Données du classement des étudiants (JSON), pour la modal "Voir le classement".
+     */
+    public function classement()
+    {
+        $etudiants = Etudiant::with('classe.filiere')
+            ->withCount('participations')
+            ->withSum('participations', 'gain_total')
+            ->get()
+            ->map(function ($e) {
+                return [
+                    'id'                => $e->id,
+                    'nom'               => $e->nom,
+                    'prenom'            => $e->prenom,
+                    'classe'            => $e->classe->nom ?? 'Sans classe',
+                    'filiere'           => $e->classe->filiere->nom ?? 'Sans filière',
+                    'nb_participations' => $e->participations_count,
+                    'points_bde'        => ($e->participations_sum_gain_total ?? 0) + $e->points_bonus,
+                ];
+            });
+
+        return response()->json($etudiants);
+    }
+
+    /**
+     * Exporte la liste des étudiants en CSV : prénom + nb de participations uniquement,
+     * triés par filière, puis classe, puis nom.
+     */
+    public function exportCsv()
+    {
+        $etudiants = Etudiant::query()
+            ->join('classes', 'etudiants.classe_id', '=', 'classes.id')
+            ->join('filieres', 'classes.filiere_id', '=', 'filieres.id')
+            ->with('classe.filiere')
+            ->select('etudiants.*')
+            ->withCount('participations')
+            ->orderBy('filieres.nom')
+            ->orderBy('classes.nom')
+            ->orderBy('etudiants.nom')
+            ->get();
+
+        $filename = 'export_etudiants_' . now()->format('Y-m-d_His') . '.csv';
+
+        $callback = function () use ($etudiants) {
+            $handle = fopen('php://output', 'w');
+
+            // BOM UTF-8 pour qu'Excel affiche correctement les accents
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, ['Filière', 'Classe', 'Nom', 'Prénom', 'Participations'], ';');
+
+            foreach ($etudiants as $etudiant) {
+                fputcsv($handle, [
+                    $etudiant->classe->filiere->nom ?? '',
+                    $etudiant->classe->nom ?? '',
+                    $etudiant->nom,
+                    $etudiant->prenom,
+                    $etudiant->participations_count,
+                ], ';');
+            }
+
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
     }
 
     public function import(Request $request)

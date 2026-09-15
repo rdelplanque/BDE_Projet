@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Gestion des Événements - BDE</title>
-    <link rel="preconnect" href="[https://fonts.googleapis.com](https://fonts.googleapis.com)">
-    <link rel="preconnect" href="[https://fonts.gstatic.com](https://fonts.gstatic.com)" crossorigin>
-    <link href="[https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap](https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap)" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/gestion_evenement.css') }}">
 </head>
 <body class="page-gestion">
@@ -85,6 +86,7 @@
         </div>
     </main>
 
+    <!-- MODAL : Créer / modifier un événement -->
     <div class="modal-backdrop" id="eventModal">
         <div class="modal-card">
             <div class="modal-head">
@@ -100,6 +102,16 @@
                     <div class="inscrits-progress-bar" id="inscritsProgressBar" style="width: 0%;"></div>
                 </div>
             </div>
+
+            <button
+                type="button"
+                id="btnOpenValidation"
+                class="btn-manage-participations"
+                style="display: none;"
+                onclick="openValidationModal()"
+            >
+                Gérer les participations
+            </button>
 
             <form id="eventForm" method="POST" action="{{ route('evenements.store') }}">
                 @csrf
@@ -142,18 +154,64 @@
                 <div class="modal-footer">
                     <button type="button" class="btn-cancel" onclick="closeEventModal()">Annuler</button>
                     <button type="submit" class="btn-save" id="btnSaveModal">Enregistrer</button>
+                    @if(Auth::user() && Auth::user()->est_admin)
+                        <form id="deleteEventForm" method="POST" action="" style="display:none; margin-top: 12px; text-align: right;">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn-delete" onclick="return confirm('Confirmer la suppression de cet événement ?')">
+                                Supprimer cet événement
+                            </button>
+                        </form>
+                    @endif
                 </div>
             </form>
+        </div>
+    </div>
 
-            @if(Auth::user() && Auth::user()->est_admin)
-                <form id="deleteEventForm" method="POST" action="" style="display:none; margin-top: 12px; text-align: right;">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="btn-delete" onclick="return confirm('Confirmer la suppression de cet événement ?')">
-                        Supprimer cet événement
-                    </button>
-                </form>
-            @endif
+    <!-- MODAL : Valider une participation (séparée de la modal événement) -->
+    <div class="modal-backdrop" id="validationModal">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3>Valider une participation</h3>
+                <button type="button" class="modal-close-btn" onclick="closeValidationModal()">×</button>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group col-half">
+                    <label for="val_filiere">Filière</label>
+                    <select id="val_filiere" onchange="onFiliereChange()">
+                        <option value="">Toutes les filières</option>
+                        @foreach($filieres as $filiere)
+                            <option value="{{ $filiere->id }}">{{ $filiere->nom }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-group col-half">
+                    <label for="val_classe">Classe</label>
+                    <select id="val_classe" onchange="rechercherEtudiantsValidation()">
+                        <option value="">Toutes les classes</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="val_recherche">Nom / prénom</label>
+                <input
+                    type="text"
+                    id="val_recherche"
+                    placeholder="Tapez un nom pour affiner la recherche..."
+                    oninput="onValidationSearchInput()"
+                >
+            </div>
+
+            <div id="val_resultats" class="val-resultats-list">
+                <p class="no-result">Utilisez les filtres ci-dessus pour rechercher un étudiant.</p>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="backToEventModal()">← Retour à l'événement</button>
+                <button type="button" class="btn-cancel" onclick="closeValidationModal()">Fermer</button>
+            </div>
         </div>
     </div>
 
@@ -167,6 +225,9 @@
     <script>
         window.BDE_EVENTS = @json($evenements ?? []);
         window.BDE_STORE_URL = "{{ route('evenements.store') }}";
+        window.BDE_CLASSES = @json($classes ?? []);
+        window.BDE_SEARCH_ETUDIANTS_URL = "{{ route('participations.rechercher-etudiants') }}";
+        window.BDE_VALIDER_URL_TEMPLATE = "{{ route('participations.valider', ['evenement' => '__ID__']) }}";
     </script>
     <script src="{{ asset('js/gestion_evenement.js') }}"></script>
 

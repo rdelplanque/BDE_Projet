@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Gestion des Étudiants - BDE</title>
-    <link rel="preconnect" href="[https://fonts.googleapis.com](https://fonts.googleapis.com)">
-    <link rel="preconnect" href="[https://fonts.gstatic.com](https://fonts.gstatic.com)" crossorigin>
-    <link href="[https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap](https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap)" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/gestion_etudiant.css') }}">
 </head>
 <body class="page-gestion">
@@ -50,17 +51,17 @@
                         <button type="button" class="btn-action-primary" onclick="openStudentModal('create')">
                             + Ajouter un étudiant
                         </button>
-                        <button type="button" class="btn-action-secondary" onclick="openSelectStudentModal()">
-                            Modifier un étudiant
-                        </button>
                         <button type="button" class="btn-action-import" onclick="openImportModal()">
-                            ⇪ MAJ liste (Import)
+                            Importer la liste des étudiants
+                        </button>
+                        <button type="button" class="btn-action-import" onclick="openExportModal()">
+                            Exporter la liste des étudiants
                         </button>
                     </div>
                 </div>
 
                 <div class="search-box-wrap">
-                    <label for="studentSearchInput">Recherche floue (Filière, Classe, Nom, Prénom)</label>
+                    <label for="studentSearchInput">Recherche (Filière, Classe, Nom, Prénom)</label>
                     <input 
                         type="text" 
                         id="studentSearchInput" 
@@ -91,7 +92,7 @@
                 <div class="form-row">
                     <div class="form-group col-half">
                         <label for="form_filiere_select">Filière</label>
-                        <select id="form_filiere_select" onchange="onFiliereChanged()" style="width: 100%; padding: 11px 14px; border-radius: 12px; border: 1.5px solid rgba(255, 255, 255, 0.15); background: #271b48; color: #ffffff; font-family: inherit; font-size: 0.92rem; outline: none;">
+                        <select id="form_filiere_select" onchange="onFiliereChanged()" style="...">
                             <option value="">-- Choisir une filière --</option>
                             @foreach ($filieres as $f)
                                 <option value="{{ $f->id }}">{{ $f->nom }}</option>
@@ -100,8 +101,11 @@
                     </div>
                     <div class="form-group col-half">
                         <label for="form_classe_id">Classe</label>
-                        <select id="form_classe_id" name="classe_id" required style="width: 100%; padding: 11px 14px; border-radius: 12px; border: 1.5px solid rgba(255, 255, 255, 0.15); background: #271b48; color: #ffffff; font-family: inherit; font-size: 0.92rem; outline: none;">
+                        <select id="form_classe_id" name="classe_id" required style="...">
                             <option value="">-- Choisir d'abord une filière --</option>
+                            @foreach ($classes as $c)
+                                <option value="{{ $c->id }}" data-filiere-id="{{ $c->filiere_id }}">{{ $c->nom }}</option>
+                            @endforeach
                         </select>
                     </div>
                 </div>
@@ -125,13 +129,21 @@
                 <div class="form-row">
                     <div class="form-group col-half">
                         <label for="form_participations">Nombre de participations</label>
-                        <input type="number" id="form_participations" name="nb_participations" value="0" min="0">
+                        <input type="number" id="form_participations" value="0" readonly disabled
+                            style="opacity: 0.7; cursor: not-allowed;">
+                        <small style="color:#c9bee6;">Calculé automatiquement, non modifiable.</small>
                     </div>
                     <div class="form-group col-half">
                         <label for="form_points">Points BDE</label>
-                        <input type="number" id="form_points" name="points_bde" value="0" min="0">
+                        <input type="number" id="form_points" value="0" readonly disabled
+                            style="opacity: 0.7; cursor: not-allowed;">
+                        <small style="color:#c9bee6;">Somme des gains validés sur les événements.</small>
                     </div>
                 </div>
+
+                <button type="button" id="btnAjouterPoints" class="btn-manage-participations" style="display: none;" onclick="ajouterPointsBde()">
+                    + Ajouter des points BDE
+                </button>
 
                 <div class="modal-footer">
                     <button type="button" class="btn-cancel" onclick="closeStudentModal()">Annuler</button>
@@ -177,6 +189,32 @@
         </div>
     </div>
 
+    <!-- MODALE D'EXPORT CSV -->
+    <div class="modal-backdrop" id="exportModal">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3>Exporter la liste des étudiants</h3>
+                <button type="button" class="modal-close-btn" onclick="closeExportModal()">×</button>
+            </div>
+
+            <p class="import-instructions">
+                Le fichier CSV contient la liste des étudiants triées par filiere et classe. 
+                Il indique par étudiant le nombre de participation aux évenements du BDE.
+            </p>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closeExportModal()">Annuler</button>
+                <a
+                    href="{{ route('etudiants.export') }}"
+                    class="btn-save"
+                    style="text-decoration: none; display: inline-block; text-align: center;"
+                >
+                    Télécharger le CSV
+                </a>
+            </div>
+        </div>
+    </div>
+
     <footer class="accueil-footer">
         <div class="wrap footer-content">
             <p>&copy; 2026 BDE — Tous droits réservés.</p>
@@ -194,4 +232,3 @@
 
 </body>
 </html>
-

@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Classe;
 use App\Models\Evenement;
+use App\Models\Filiere;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -13,13 +15,15 @@ class EvenementController extends Controller
      */
     public function index()
     {
-        // withCount('inscriptions') ou withCount('etudiants') selon le nom de ta relation dans Evenement
-        // Si la relation n'est pas encore créée, $evenements = Evenement::orderBy('date_evenement', 'asc')->get(); fonctionne aussi.
-        $evenements = Evenement::withCount(['etudiants as inscrits_count' => function($query) {
-            // si nécessaire, ou simplement withCount('etudiants')
-        }])->orderBy('date_evenement', 'asc')->get();
+        $evenements = Evenement::withCount('etudiants as inscrits_count')
+            ->orderBy('date_evenement', 'asc')
+            ->get();
 
-        return view('gestion_evenement', compact('evenements'));
+        // Nécessaires pour les filtres de la modal "Valider une participation"
+        $filieres = Filiere::orderBy('nom', 'asc')->get();
+        $classes = Classe::orderBy('nom', 'asc')->get(['id', 'nom', 'filiere_id']);
+
+        return view('gestion_evenement', compact('evenements', 'filieres', 'classes'));
     }
 
     /**

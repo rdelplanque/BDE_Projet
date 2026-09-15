@@ -41,4 +41,23 @@ Route::middleware('auth')->group(function () {
     Route::put('/etudiants/{etudiant}', [EtudiantController::class, 'update'])->name('etudiants.update');
     Route::delete('/etudiants/{etudiant}', [EtudiantController::class, 'destroy'])->name('etudiants.destroy');
     Route::post('/etudiants/import', [EtudiantController::class, 'import'])->name('etudiants.import');
+
+     // Recherche d'étudiants (filière / classe / nom) pour la modal de validation
+    Route::get('/participations/recherche-etudiants', [ParticipationController::class, 'rechercherEtudiants'])
+        ->name('participations.rechercher-etudiants');
+
+    // Valider la participation d'un étudiant à un événement
+    Route::post('/evenements/{evenement}/valider-participation', [ParticipationController::class, 'valider'])
+        ->name('participations.valider');
+
+    Route::post('/etudiants/{etudiant}/ajouter-points', [EtudiantController::class, 'ajouterPoints'])
+        ->name('etudiants.ajouter-points');
+
+    // Afficher le classement
+    Route::get('/classement/data', [EtudiantController::class, 'classement'])
+        ->name('classement.data');
+
+    // exporter la liste d'étudiant
+    Route::get('/etudiants/export', [EtudiantController::class, 'exportCsv'])
+        ->name('etudiants.export');
 });

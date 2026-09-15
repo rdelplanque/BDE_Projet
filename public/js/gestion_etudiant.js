@@ -2,6 +2,8 @@ const rawStudents = window.BDE_STUDENTS || [];
 const storeStudentUrl = window.BDE_STUDENT_STORE_URL || '/etudiants';
 const isAdmin = window.BDE_IS_ADMIN || false;
 
+let currentEditingStudentId = null; // étudiant actuellement ouvert dans la modal (null = création)
+
 // Construction de l'arborescence Filière -> Classe -> Étudiants
 function buildHierarchy(studentsList) {
     const hierarchy = {};
@@ -181,11 +183,15 @@ function openStudentModal(mode) {
     const form = document.getElementById('studentForm');
     const methodInput = document.getElementById('studentFormMethod');
     const delForm = document.getElementById('deleteStudentForm');
+    const btnAjouterPoints = document.getElementById('btnAjouterPoints');
 
     if (mode === 'create') {
         title.textContent = 'Ajouter un étudiant';
         form.action = storeStudentUrl;
         methodInput.value = 'POST';
+
+        currentEditingStudentId = null;
+        if (btnAjouterPoints) btnAjouterPoints.style.display = 'none';
 
         // Réinitialisation des champs existants
         const selectClasse = document.getElementById('form_classe_id');
@@ -208,10 +214,14 @@ function openEditStudent(st) {
     const form = document.getElementById('studentForm');
     const methodInput = document.getElementById('studentFormMethod');
     const delForm = document.getElementById('deleteStudentForm');
+    const btnAjouterPoints = document.getElementById('btnAjouterPoints');
 
     title.textContent = 'Modifier un étudiant';
     form.action = `/etudiants/${st.id}`;
     methodInput.value = 'PUT';
+
+    currentEditingStudentId = st.id;
+    if (btnAjouterPoints) btnAjouterPoints.style.display = 'inline-block';
 
     const selectClasse = document.getElementById('form_classe_id');
     if (selectClasse) selectClasse.value = st.classe_id || '';
@@ -253,6 +263,62 @@ function openImportModal() {
 
 function closeImportModal() {
     document.getElementById('importModal').classList.remove('show');
+}
+
+function openExportModal() {
+    document.getElementById('exportModal').classList.add('show');
+}
+
+function closeExportModal() {
+    document.getElementById('exportModal').classList.remove('show');
+}
+
+// --- AJOUT DE POINTS BDE (bonus manuel) ---
+
+function getCsrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.content : '';
+}
+
+function ajouterPointsBde() {
+    if (!currentEditingStudentId) return;
+
+    const saisie = prompt('Combien de points ajouter ? (nombre négatif pour retirer des points)');
+    if (saisie === null) return; // annulé
+
+    const points = parseInt(saisie, 10);
+    if (isNaN(points)) {
+        alert('Merci de saisir un nombre entier valide.');
+        return;
+    }
+
+    fetch(`/etudiants/${currentEditingStudentId}/ajouter-points`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': getCsrfToken(),
+        },
+        body: JSON.stringify({ points }),
+    })
+        .then(r => {
+            if (!r.ok) throw new Error('Erreur serveur');
+            return r.json();
+        })
+        .then(data => {
+            const pointsField = document.getElementById('form_points');
+            if (pointsField) pointsField.value = data.points_bde;
+
+            // Met à jour la donnée en mémoire pour que le tableau reflète le changement sans recharger la page
+            const st = rawStudents.find(s => s.id === currentEditingStudentId);
+            if (st) {
+                st.points_bde = data.points_bde;
+                renderStudents(rawStudents, false);
+            }
+        })
+        .catch(() => {
+            alert("Une erreur est survenue lors de l'ajout des points.");
+        });
 }
 
 window.addEventListener('DOMContentLoaded', () => {
