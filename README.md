@@ -1,6 +1,8 @@
-C'est un site web de gestion pour le BDE Skolae de Toulon. 
-Seul les administrateurs ont acces à ce site web.
+Configuration PostGresSQL:
+Télécharger l'export POSTGRES fournit à part.
+Créer le fichier ".env" à la racine du projet puis configurer avec la BDD créer par vos soins.
 
-Vous avez besoin de Laravel et de PostGreSql.
+Importer le projet complet sur VSCode
 
-Suivez le .env.exemple pour savoir comment configurer le .env que vous aurez créé avec Laravel
+Nous utilisons le FrameWork Laravel, donc suivez les instruction de Laravel.
+
