@@ -5,6 +5,24 @@ let classementLoaded = false;
 let classementSortKey = 'points_bde';
 let classementSortDir = 'desc'; // 'asc' | 'desc'
 
+// Retire les accents (é, è, ê, à...) pour que la recherche fonctionne
+// que l'utilisateur tape les accents ou non.
+function normalizeText(str) {
+    return (str || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+// Chaque mot tapé doit apparaître littéralement dans le nom (ordre libre entre les mots).
+function matchesNom(pattern, nom) {
+    const query = normalizeText(pattern).toLowerCase().trim();
+    const haystack = normalizeText(nom).toLowerCase();
+
+    if (!query) return true;
+
+    return query.split(/\s+/).every(mot => haystack.includes(mot));
+}
+
 const SORT_KEYS = ['filiere', 'classe', 'nb_participations', 'points_bde'];
 
 function openClassementModal() {
@@ -65,14 +83,11 @@ function renderClassementTable() {
     const tbody = document.getElementById('classementTbody');
     if (!tbody) return;
 
-    // Filtrage par recherche libre (nom, prénom, classe, filière)
-    const query = (document.getElementById('classementSearch')?.value || '').trim().toLowerCase();
+    // Filtrage par recherche libre (nom uniquement)
+    const query = document.getElementById('classementSearch')?.value || '';
     let list = classementData;
-    if (query) {
-        list = list.filter(et => {
-            const haystack = `${et.nom || ''} ${et.prenom || ''} ${et.classe || ''} ${et.filiere || ''}`.toLowerCase();
-            return haystack.includes(query);
-        });
+    if (query.trim()) {
+        list = list.filter(et => matchesNom(query, et.nom));
     }
 
     // Tri

@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Filiere;
 use App\Models\Etudiant;
 use App\Models\Classe;
+use App\Imports\EtudiantsImport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel;
 
 class EtudiantController extends Controller
 {
@@ -183,10 +185,22 @@ class EtudiantController extends Controller
     public function import(Request $request)
     {
         $request->validate([
-            'fichier_etudiants' => 'required|file|max:5120',
+            'fichier_etudiants' => 'required|file|mimes:xlsx,xls,csv|max:5120',
         ]);
 
+        $import = new EtudiantsImport();
+
+        try {
+            Excel::import($import, $request->file('fichier_etudiants'));
+        } catch (\Throwable $e) {
+            return redirect()->route('etudiants.index')
+                ->withErrors(['error' => 'Impossible de lire ce fichier. Vérifiez qu\'il s\'agit bien d\'un fichier Excel (.xlsx) ou CSV valide, avec les colonnes Filiere, Classe, nom, prenom, email.']);
+        }
+
+        $message = "{$import->created} étudiant(s) créé(s), {$import->updated} mis à jour.";
+
         return redirect()->route('etudiants.index')
-            ->with('success', 'Fichier reçu pour synchronisation.');
+            ->with('success', $message)
+            ->with('import_errors', $import->errors);
     }
 }

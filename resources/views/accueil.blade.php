@@ -31,6 +31,12 @@
             <p class="accueil-desc">Sélectionne un espace pour continuer.</p>
 
             <div class="actions-grid">
+                @if(Auth::user() && Auth::user()->est_admin)
+                    <a href="{{ route('utilisateurs.index') }}" class="btn-action" style="display: flex; align-items: center; justify-content: center; text-decoration: none;">
+                        Gestion des utilisateurs
+                    </a>
+                @endif
+
                 <a href="{{ route('evenements.index') }}" class="btn-action" style="display: flex; align-items: center; justify-content: center; text-decoration: none;">
                     Gestion des événements
                 </a>
@@ -64,7 +70,7 @@
                 <input
                     type="text"
                     id="classementSearch"
-                    placeholder="Rechercher un étudiant, une classe, une filière..."
+                    placeholder="Rechercher par nom..."
                     oninput="onClassementSearchInput()"
                 >
             </div>

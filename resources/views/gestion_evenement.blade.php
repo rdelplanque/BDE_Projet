@@ -75,7 +75,7 @@
                     <input 
                         type="text" 
                         id="eventSearchInput" 
-                        placeholder="Tapez un nom, un mot-clé ou un détail (recherche en temps réel)..."
+                        placeholder="Tapez le nom d'un événement (recherche en temps réel)..."
                         oninput="filterEventsList()"
                     >
                 </div>
@@ -154,17 +154,18 @@
                 <div class="modal-footer">
                     <button type="button" class="btn-cancel" onclick="closeEventModal()">Annuler</button>
                     <button type="submit" class="btn-save" id="btnSaveModal">Enregistrer</button>
-                    @if(Auth::user() && Auth::user()->est_admin)
-                        <form id="deleteEventForm" method="POST" action="" style="display:none; margin-top: 12px; text-align: right;">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn-delete" onclick="return confirm('Confirmer la suppression de cet événement ?')">
-                                Supprimer cet événement
-                            </button>
-                        </form>
-                    @endif
                 </div>
             </form>
+
+            @if(Auth::user() && Auth::user()->est_admin)
+                <form id="deleteEventForm" method="POST" action="" style="display:none; margin-top: 12px; text-align: right;">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn-delete" onclick="return confirm('Confirmer la suppression de cet événement ?')">
+                        Supprimer cet événement
+                    </button>
+                </form>
+            @endif
         </div>
     </div>
 
@@ -228,6 +229,7 @@
         window.BDE_CLASSES = @json($classes ?? []);
         window.BDE_SEARCH_ETUDIANTS_URL = "{{ route('participations.rechercher-etudiants') }}";
         window.BDE_VALIDER_URL_TEMPLATE = "{{ route('participations.valider', ['evenement' => '__ID__']) }}";
+        window.BDE_ANNULER_URL_TEMPLATE = "{{ route('participations.annuler', ['evenement' => '__ID__']) }}";
     </script>
     <script src="{{ asset('js/gestion_evenement.js') }}"></script>
 

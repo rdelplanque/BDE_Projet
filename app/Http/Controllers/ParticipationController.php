@@ -94,4 +94,25 @@ class ParticipationController extends Controller
             'nb_inscrits' => Participation::where('evenement_id', $evenement->id)->count(),
         ]);
     }
+
+    /**
+     * Annule (supprime) la participation d'un étudiant à un événement.
+     */
+    public function annuler(Request $request, Evenement $evenement)
+    {
+        $data = $request->validate([
+            'etudiant_id' => 'required|integer|exists:etudiants,id',
+        ]);
+
+        Participation::where('evenement_id', $evenement->id)
+            ->where('etudiant_id', $data['etudiant_id'])
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Participation annulée.',
+            'etudiant_id' => (int) $data['etudiant_id'],
+            'nb_inscrits' => Participation::where('evenement_id', $evenement->id)->count(),
+        ]);
+    }
 }

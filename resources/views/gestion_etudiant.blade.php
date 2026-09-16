@@ -40,6 +40,17 @@
                 <div class="alert-box alert-danger">{{ $errors->first() }}</div>
             @endif
 
+            @if (session('import_errors') && count(session('import_errors')) > 0)
+                <div class="alert-box alert-danger">
+                    <strong>{{ count(session('import_errors')) }} ligne(s) ignorée(s) lors de l'import :</strong>
+                    <ul style="margin: 8px 0 0 20px; padding: 0;">
+                        @foreach (session('import_errors') as $erreurLigne)
+                            <li>{{ $erreurLigne }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
             <div class="gestion-card">
                 <div class="card-toolbar">
                     <div>
@@ -61,11 +72,11 @@
                 </div>
 
                 <div class="search-box-wrap">
-                    <label for="studentSearchInput">Recherche (Filière, Classe, Nom, Prénom)</label>
+                    <label for="studentSearchInput">Recherche par nom</label>
                     <input 
                         type="text" 
                         id="studentSearchInput" 
-                        placeholder="Ex : Informatique, BTS2, Dupont, Alex..." 
+                        placeholder="Ex : Dupont..." 
                         oninput="filterStudents()"
                     >
                 </div>
@@ -174,11 +185,13 @@
             <form action="{{ route('etudiants.import') }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <p class="import-instructions">
-                    Sélectionnez le fichier à importer pour synchroniser la liste des étudiants.
+                    Fichier Excel (.xlsx) ou CSV avec les colonnes <strong>Filiere, Classe, nom, prenom, email</strong>
+                    (dans cet ordre, 1 ligne = 1 étudiant). La filière et la classe doivent déjà exister.
+                    Si l'email existe déjà, l'étudiant est mis à jour plutôt que dupliqué.
                 </p>
 
                 <div class="file-upload-area">
-                    <input type="file" id="importFile" name="fichier_etudiants" required class="input-file">
+                    <input type="file" id="importFile" name="fichier_etudiants" accept=".xlsx,.xls,.csv" required class="input-file">
                 </div>
 
                 <div class="modal-footer">

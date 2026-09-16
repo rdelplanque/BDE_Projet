@@ -7,6 +7,7 @@ use App\Http\Controllers\EtudiantController;
 use App\Http\Controllers\EvenementController;
 use App\Http\Controllers\ParticipationController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\UtilisateurController;
 
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
@@ -60,4 +61,13 @@ Route::middleware('auth')->group(function () {
     // exporter la liste d'étudiant
     Route::get('/etudiants/export', [EtudiantController::class, 'exportCsv'])
         ->name('etudiants.export');
+
+    // Gestion des utilisateurs (accès admin vérifié dans le contrôleur)
+    Route::get('/utilisateurs', [UtilisateurController::class, 'index'])->name('utilisateurs.index');
+    Route::post('/utilisateurs', [UtilisateurController::class, 'store'])->name('utilisateurs.store');
+    Route::put('/utilisateurs/{utilisateur}', [UtilisateurController::class, 'update'])->name('utilisateurs.update');
+    Route::delete('/utilisateurs/{utilisateur}', [UtilisateurController::class, 'destroy'])->name('utilisateurs.destroy');
+
+    Route::delete('/evenements/{evenement}/annuler-participation', [ParticipationController::class, 'annuler'])
+        ->name('participations.annuler');
 });

@@ -38,6 +38,7 @@ h1, h2, h3, h4 {
 /* STRUCTURE ET FOND */
 .page-gestion {
   min-height: 100vh;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   background: 
@@ -241,7 +242,7 @@ h1, h2, h3, h4 {
 /* GRILLE DU CALENDRIER */
 .calendar-grid-header {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   text-align: center;
   color: #c9bee6;
   font-weight: 700;
@@ -251,12 +252,14 @@ h1, h2, h3, h4 {
 
 .calendar-days-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
 }
 
 .day-cell {
   min-height: 105px;
+  min-width: 0;
+  overflow: hidden;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
@@ -408,6 +411,7 @@ h1, h2, h3, h4 {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
+  padding: 20px;
 }
 
 .modal-backdrop.show {
@@ -418,6 +422,8 @@ h1, h2, h3, h4 {
 .modal-card {
   width: 100%;
   max-width: 540px;
+  max-height: 90vh;
+  overflow-y: auto;
   background: #1f143a;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 24px;
@@ -556,6 +562,68 @@ h1, h2, h3, h4 {
     gap: 0;
   }
 }
+
+@media (max-width: 560px) {
+  .wrap {
+    padding: 0 14px;
+  }
+
+  .header-content {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 12px 0;
+    gap: 10px;
+  }
+
+  .gestion-card,
+  .search-section {
+    padding: 20px 16px;
+  }
+
+  .card-toolbar h1 {
+    font-size: 1.4rem;
+  }
+
+  .calendar-grid-header {
+    font-size: 0.7rem;
+  }
+
+  .calendar-days-grid {
+    gap: 4px;
+  }
+
+  .day-cell {
+    min-height: 56px;
+    padding: 3px;
+    border-radius: 8px;
+  }
+
+  .day-number {
+    font-size: 0.75rem;
+  }
+
+  .event-pill {
+    font-size: 0.68rem;
+    padding: 2px 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .modal-card {
+    padding: 20px;
+    border-radius: 16px;
+  }
+
+  .modal-footer {
+    flex-direction: column-reverse;
+    gap: 10px;
+  }
+
+  .modal-footer button {
+    width: 100%;
+  }
+}
 /* ENCART NOMBRE D'INSCRITS */
 .inscrits-card {
   background: rgba(255, 255, 255, 0.05);
@@ -666,7 +734,7 @@ h1, h2, h3, h4 {
 .btn-valide-done {
     background: rgba(76, 217, 100, 0.15);
     color: #4cd964;
-    cursor: default;
+    cursor: pointer;
 }
 
 /* --- À AJOUTER à la fin de gestion_evenement.css --- */
@@ -741,5 +809,11 @@ h1, h2, h3, h4 {
 .btn-valide-done {
     background: rgba(76, 217, 100, 0.15);
     color: #4cd964;
-    cursor: default;
+    cursor: pointer;
+}
+
+/* Bouton "déjà validé" : survol indique que le clic annule la participation */
+.btn-valide-done:hover {
+    background: rgba(255, 107, 107, 0.18);
+    color: #ff6b6b;
 }

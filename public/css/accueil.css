@@ -150,7 +150,7 @@ img {
 /* GRILLE DES BOUTONS SUR FOND SOMBRE */
 .actions-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 20px;
 }
 
@@ -204,6 +204,26 @@ img {
 
   .accueil-card {
     padding: 32px 20px;
+  }
+}
+
+@media (max-width: 420px) {
+  .wrap {
+    padding: 0 14px;
+  }
+
+  .accueil-card {
+    padding: 24px 16px;
+    border-radius: 20px;
+  }
+
+  .accueil-card h1 {
+    font-size: 1.3rem;
+  }
+
+  .btn-action {
+    padding: 20px 14px;
+    font-size: 0.9rem;
   }
 }
 /* --- À AJOUTER à la fin de accueil.css --- */

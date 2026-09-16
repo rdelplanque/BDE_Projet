@@ -144,18 +144,22 @@ function renderStudents(studentsList, forceExpand = false) {
 }
 
 // Recherche floue
+// Retire les accents (é, è, ê, à...) pour que la recherche fonctionne
+// que l'utilisateur tape les accents ou non.
+function normalizeText(str) {
+    return (str || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+// Chaque mot tapé doit apparaître littéralement dans le nom (ordre libre entre les mots).
 function fuzzyMatch(pattern, text) {
-    pattern = (pattern || '').toLowerCase();
-    text = (text || '').toLowerCase();
-    let pIdx = 0;
-    let tIdx = 0;
-    while (pIdx < pattern.length && tIdx < text.length) {
-        if (pattern[pIdx] === text[tIdx]) {
-            pIdx++;
-        }
-        tIdx++;
-    }
-    return pIdx === pattern.length;
+    const query = normalizeText(pattern).toLowerCase().trim();
+    const haystack = normalizeText(text).toLowerCase();
+
+    if (!query) return true;
+
+    return query.split(/\s+/).every(mot => haystack.includes(mot));
 }
 
 function filterStudents() {
@@ -168,16 +172,30 @@ function filterStudents() {
         return;
     }
 
-    const filtered = rawStudents.filter(st => {
-        const textTarget = `${st.filiere || ''} ${st.classe || ''} ${st.nom || ''} ${st.prenom || ''} ${st.email || ''}`;
-        return fuzzyMatch(query, textTarget);
-    });
+    const filtered = rawStudents.filter(st => fuzzyMatch(query, st.nom));
 
     // En cours de recherche, on déplie automatiquement les résultats
     renderStudents(filtered, true);
 }
 
 // GESTION MODALES
+
+function onFiliereChanged() {
+    const filiereSelect = document.getElementById('form_filiere_select');
+    const classeSelect = document.getElementById('form_classe_id');
+    if (!filiereSelect || !classeSelect) return;
+
+    const filiereId = filiereSelect.value;
+    classeSelect.value = '';
+
+    Array.from(classeSelect.options).forEach(option => {
+        if (!option.value) return; // on garde toujours le placeholder visible
+        const appartient = filiereId !== '' && option.dataset.filiereId === filiereId;
+        option.hidden = !appartient;
+        option.disabled = !appartient;
+    });
+}
+
 function openStudentModal(mode) {
     const title = document.getElementById('studentModalTitle');
     const form = document.getElementById('studentForm');
@@ -194,8 +212,9 @@ function openStudentModal(mode) {
         if (btnAjouterPoints) btnAjouterPoints.style.display = 'none';
 
         // Réinitialisation des champs existants
-        const selectClasse = document.getElementById('form_classe_id');
-        if (selectClasse) selectClasse.value = '';
+        const selectFiliere = document.getElementById('form_filiere_select');
+        if (selectFiliere) selectFiliere.value = '';
+        onFiliereChanged(); // vide/cache le select classe tant qu'aucune filière n'est choisie
 
         document.getElementById('form_nom').value = '';
         document.getElementById('form_prenom').value = '';
@@ -224,7 +243,17 @@ function openEditStudent(st) {
     if (btnAjouterPoints) btnAjouterPoints.style.display = 'inline-block';
 
     const selectClasse = document.getElementById('form_classe_id');
-    if (selectClasse) selectClasse.value = st.classe_id || '';
+    const selectFiliere = document.getElementById('form_filiere_select');
+
+    if (selectClasse && selectFiliere) {
+        // Retrouve la filière correspondant à la classe de cet étudiant, pour pré-filtrer le select
+        const optionClasse = Array.from(selectClasse.options)
+            .find(opt => opt.value == st.classe_id);
+
+        selectFiliere.value = optionClasse ? optionClasse.dataset.filiereId : '';
+        onFiliereChanged(); // filtre les classes de cette filière + reset la valeur
+        selectClasse.value = st.classe_id || ''; // ré-assigne après le filtre
+    }
 
     document.getElementById('form_nom').value = st.nom || '';
     document.getElementById('form_prenom').value = st.prenom || '';

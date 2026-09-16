@@ -18,7 +18,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // --- Utilisateurs (comptes fixes, rejouables sans doublon) ---
+        // --- Utilisateurs init ---
         User::updateOrCreate(
             ['email' => 'admin@bde.fr'],
             [
@@ -36,20 +36,43 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // --- Filières (5, noms génériques) ---
-        $filieres = Filiere::factory(5)->create();
+        // --- Filières (vrais noms du projet) ---
+        $nomsFilieres = [
+            'PPA Business School',
+            'PPA Sport',
+            'ESGI',
+            'ECITV',
+            'ISA',
+            'EFAB',
+            'ENGDE',
+            'Ecole W',
+            'Maestris BTS',
+        ];
 
-        // --- Classes (2 par filière, soit 10 classes) ---
+        $filieres = collect($nomsFilieres)->map(
+            fn (string $nom) => Filiere::firstOrCreate(['nom' => $nom])
+        );
+
+        // --- Classes : "<Filière> B1", "B2", "B3", "M1", "M2" pour chaque filière ---
+        $suffixesClasses = ['B1', 'B2', 'B3', 'M1', 'M2'];
+
         $classes = collect();
         foreach ($filieres as $filiere) {
-            $classes = $classes->merge(
-                Classe::factory(2)->create(['filiere_id' => $filiere->id])
-            );
+            foreach ($suffixesClasses as $suffixe) {
+                $classes->push(
+                    Classe::firstOrCreate([
+                        'filiere_id' => $filiere->id,
+                        'nom' => "{$filiere->nom} {$suffixe}",
+                    ])
+                );
+            }
         }
 
-        // --- Étudiants (20, répartis aléatoirement dans les classes) ---
+        // --- Étudiants (répartis aléatoirement dans les classes) ---
+        $nbEtudiants = 100;
+
         $etudiants = collect();
-        for ($i = 0; $i < 20; $i++) {
+        for ($i = 0; $i < $nbEtudiants; $i++) {
             $etudiants->push(
                 Etudiant::factory()->create([
                     'classe_id' => $classes->random()->id,

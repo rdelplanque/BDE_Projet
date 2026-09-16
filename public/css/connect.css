@@ -194,3 +194,18 @@ img {
   color: #9d8db8;
   font-size: 0.85rem;
 }
+/* ===== RESPONSIVE ===== */
+@media (max-width: 420px) {
+  .wrap {
+    padding: 0 14px;
+  }
+
+  .login-card {
+    padding: 28px 22px;
+    border-radius: 18px;
+  }
+
+  .login-card h1 {
+    font-size: 1.5rem;
+  }
+}

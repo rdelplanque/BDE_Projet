@@ -4,6 +4,7 @@ const storeUrl = window.BDE_STORE_URL || '/evenements';
 const classesData = window.BDE_CLASSES || [];
 const searchEtudiantsUrl = window.BDE_SEARCH_ETUDIANTS_URL || '/participations/recherche-etudiants';
 const validerUrlTemplate = window.BDE_VALIDER_URL_TEMPLATE || '/evenements/__ID__/valider-participation';
+const annulerUrlTemplate = window.BDE_ANNULER_URL_TEMPLATE || '/evenements/__ID__/annuler-participation';
 
 let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth(); // 0-11
@@ -200,19 +201,27 @@ function closeEventModal() {
     if (modal) modal.classList.remove('show');
 }
 
-// --- RECHERCHE FLOUE EN TEMPS RÉEL (liste des événements) ---
+// --- RECHERCHE EN TEMPS RÉEL (liste des événements) ---
+
+// Retire les accents (é, è, ê, à...) pour que la recherche fonctionne
+// que l'utilisateur tape les accents ou non.
+function normalizeText(str) {
+    return (str || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+// Chaque mot tapé doit apparaître littéralement quelque part dans le texte
+// (ordre libre entre les mots). Plus fiable qu'une correspondance caractère
+// par caractère, qui devient quasiment aléatoire sur un texte long (ex : le
+// champ "détail" d'un événement).
 function fuzzyMatch(pattern, text) {
-    pattern = pattern.toLowerCase();
-    text = text.toLowerCase();
-    let pIdx = 0;
-    let tIdx = 0;
-    while (pIdx < pattern.length && tIdx < text.length) {
-        if (pattern[pIdx] === text[tIdx]) {
-            pIdx++;
-        }
-        tIdx++;
-    }
-    return pIdx === pattern.length;
+    const query = normalizeText(pattern).toLowerCase().trim();
+    const haystack = normalizeText(text).toLowerCase();
+
+    if (!query) return true;
+
+    return query.split(/\s+/).every(mot => haystack.includes(mot));
 }
 
 function filterEventsList() {
@@ -225,10 +234,7 @@ function filterEventsList() {
         return;
     }
 
-    const filtered = rawEvents.filter(ev => {
-        const haystack = `${ev.nom || ''} ${ev.detail || ''} ${ev.date_evenement || ''}`;
-        return fuzzyMatch(query, haystack);
-    });
+    const filtered = rawEvents.filter(ev => fuzzyMatch(query, ev.nom));
 
     renderEventsList(filtered);
 }
@@ -387,16 +393,8 @@ function renderResultatsValidation(list) {
 
         const btn = document.createElement('button');
         btn.type = 'button';
-
-        if (et.deja_valide) {
-            btn.textContent = '✓ Validé';
-            btn.className = 'btn-valide-done';
-            btn.disabled = true;
-        } else {
-            btn.textContent = 'Valider';
-            btn.className = 'btn-valider';
-            btn.addEventListener('click', () => validerParticipation(et.id, btn));
-        }
+        appliquerEtatBoutonValidation(btn, et.deja_valide);
+        btn.addEventListener('click', () => toggleParticipation(et.id, btn));
 
         row.appendChild(info);
         row.appendChild(btn);
@@ -404,16 +402,52 @@ function renderResultatsValidation(list) {
     });
 }
 
-function validerParticipation(etudiantId, btnEl) {
+// Met à jour le texte/style/état d'un bouton selon que la participation est validée ou non.
+function appliquerEtatBoutonValidation(btnEl, estValide) {
+    btnEl.disabled = false;
+    if (estValide) {
+        btnEl.textContent = '✓ Validé (cliquer pour annuler)';
+        btnEl.className = 'btn-valide-done';
+        btnEl.dataset.valide = '1';
+    } else {
+        btnEl.textContent = 'Valider';
+        btnEl.className = 'btn-valider';
+        btnEl.dataset.valide = '0';
+    }
+}
+
+// Met à jour l'encart "Inscriptions actuelles" de la modal événement.
+function updateInscritsDisplay(nbInscrits) {
+    const inscritsDisplay = document.getElementById('inscritsDisplay');
+    const progressBar = document.getElementById('inscritsProgressBar');
+    if (!inscritsDisplay) return;
+
+    const ev = rawEvents.find(e => e.id === currentEventId);
+    const max = ev ? ev.nombre_place : null;
+
+    if (max && max > 0) {
+        inscritsDisplay.textContent = `${nbInscrits} / ${max} place(s)`;
+        if (progressBar) {
+            progressBar.style.width = `${Math.min(100, Math.round((nbInscrits / max) * 100))}%`;
+        }
+    } else {
+        inscritsDisplay.textContent = `${nbInscrits} inscrit(s) (Places illimitées)`;
+    }
+}
+
+// Bascule l'état d'un étudiant pour l'événement courant : valide s'il ne l'était pas, annule sinon.
+function toggleParticipation(etudiantId, btnEl) {
     if (!currentEventId) return;
+
+    const estActuellementValide = btnEl.dataset.valide === '1';
+    const url = (estActuellementValide ? annulerUrlTemplate : validerUrlTemplate)
+        .replace('__ID__', currentEventId);
 
     btnEl.disabled = true;
     btnEl.textContent = '...';
 
-    const url = validerUrlTemplate.replace('__ID__', currentEventId);
-
     fetch(url, {
-        method: 'POST',
+        method: estActuellementValide ? 'DELETE' : 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
@@ -426,29 +460,14 @@ function validerParticipation(etudiantId, btnEl) {
             return r.json();
         })
         .then(data => {
-            btnEl.textContent = '✓ Validé';
-            btnEl.className = 'btn-valide-done';
-
-            // Mise à jour de l'encart d'inscriptions de la modal
-            const inscritsDisplay = document.getElementById('inscritsDisplay');
-            const progressBar = document.getElementById('inscritsProgressBar');
-            if (inscritsDisplay) {
-                const ev = rawEvents.find(e => e.id === currentEventId);
-                const max = ev ? ev.nombre_place : null;
-                if (max && max > 0) {
-                    inscritsDisplay.textContent = `${data.nb_inscrits} / ${max} place(s)`;
-                    if (progressBar) {
-                        progressBar.style.width = `${Math.min(100, Math.round((data.nb_inscrits / max) * 100))}%`;
-                    }
-                } else {
-                    inscritsDisplay.textContent = `${data.nb_inscrits} inscrit(s) (Places illimitées)`;
-                }
-            }
+            appliquerEtatBoutonValidation(btnEl, !estActuellementValide);
+            updateInscritsDisplay(data.nb_inscrits);
         })
         .catch(() => {
-            btnEl.disabled = false;
-            btnEl.textContent = 'Valider';
-            alert("Une erreur est survenue lors de la validation.");
+            appliquerEtatBoutonValidation(btnEl, estActuellementValide);
+            alert(estActuellementValide
+                ? "Une erreur est survenue lors de l'annulation."
+                : "Une erreur est survenue lors de la validation.");
         });
 }
 
